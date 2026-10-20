@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime , date
 
 from django.db import models
 from django.core.exceptions import ValidationError
@@ -19,13 +19,13 @@ def validate_rsa_id(value):
     mm = int(id_str[2:4])  
     dd = int(id_str[4:6])
     
-    current_year = datetime.now.today().year
+    current_year = datetime.now().year
     current_yy = current_year % 100
     century = 1900 if yy > current_yy else 2000
     full_year = century + yy
     
     try:
-        datetime.date(full_year, mm, dd)
+        date(full_year, mm, dd)
     except ValueError:
         raise ValidationError("RSA ID contains an invalid date.")
     
