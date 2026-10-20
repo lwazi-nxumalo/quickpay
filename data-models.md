@@ -11,3 +11,6 @@
 # Soft deletion rules
 - user accounts are not deleted , access is simply revoked
 - when user attempts to open same account with the same details allow them but require verification as normal and prevent seeing any data before deletion. 
+
+# AbstractUser vs AbstractBaseUser
+AbstractUser , largely for the added built in security of inheriting from PermissionsMixin and the scope not needing a remarkably different type of user from the one presented
