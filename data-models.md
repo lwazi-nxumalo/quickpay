@@ -14,3 +14,5 @@
 
 # AbstractUser vs AbstractBaseUser
 AbstractUser , largely for the added built in security of inheriting from PermissionsMixin and the scope not needing a remarkably different type of user from the one presented
+
+- username made email , easier to recover for user , harder to face recycle issues causing unintended consequences. 
