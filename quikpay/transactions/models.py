@@ -2,6 +2,7 @@ from django.db import models
 from decimal import Decimal
 from django.core.exceptions import ValidationError
 import uuid
+from django.db.models import Sum
 
 # Create your models here.
 
@@ -36,7 +37,16 @@ class Wallet(models.Model):
                 self.gl_code = f'2000-USER-{self.user.pk:06d}'
                 
         super().save(*args, **kwargs)
-      
+    
+    def get_balance(self) -> Decimal:
+        result = self.entries.aggregate(
+            total_debit=Sum("debit"), total_credit=Sum("credit")
+        )
+        
+        debit_sum = result["total_debit"] or Decimal("0.00")
+        credit_sum = result["total_credit"] or Decimal("0.00")
+        
+        return credit_sum - debit_sum
 
     def __str__(self):
         return f'Wallet: {self.gl_code} ({self.account_type})'
@@ -50,6 +60,7 @@ Fields need to be ( reference_number , description , created_at )
 """
 class Transaction(models.Model):
     reference_number = models.CharField(max_length=30, unique=True, blank=True , editable=False)
+    idempotency_key = models.CharField(max_length=255 , unique=True, null=False, blank=False)
     description = models.CharField(max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
 

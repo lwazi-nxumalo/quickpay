@@ -31,6 +31,7 @@ decimal places is always 2 with rands , max_digits reliably making 11 digits bei
 
 # Transaction model 
 - i need to avoid views touching raw data by any means , so I looked up common practice and learned a service layer to avoid bloated models with lots of logic is the cleaner way forward
+- user wallets are liabilities: balance = credits − debits.
 
 # Service Layer
 - needed to protect the database by adding a layer between views and database 

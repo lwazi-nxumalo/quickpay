@@ -1,21 +1,88 @@
 from decimal import Decimal
 from django.core.exceptions import ValidationError
-from django.db import transaction
-from .models import Entry , Transaction, Wallet
+from django.db import IntegrityError, transaction
+from .models import Entry, Transaction, Wallet
 
-# define a class for transactions
-# is the transfer more than the available balance in the wallet? if yes then raise an error
-# are they sending to themselves? 
-# is the wallet active? 
 
 class WalletService:
-    @staticmethod
-    def transfer(sender_wallet: Wallet, recipient_wallet: Wallet, amount: Decimal, description: str) -> Transaction:
-        # Validate the transfer conditions
-        if amount <= 0:
-            raise ValidationError("Transfer amount must be greater than zero.")
-        if sender_wallet.id == recipient_wallet.id:
-            raise ValidationError("Cannot transfer to the same wallet.")
+
+  @staticmethod
+  def transfer(
+      sender_wallet_id: int,
+      recipient_wallet_id: int,
+      amount: Decimal,
+      description: str,
+      idempotency_key: str
+  ) -> Transaction:
+    """Executes a race-condition safe, idempotent P2P transfer between wallets.
+
+    Rule: User wallets are liabilities (balance = credits - debits).
+    """
+
+    # Fast-path check outside transaction
+  
+    existing_txn = Transaction.objects.filter(
+        idempotency_key=idempotency_key
+    ).first()
+    if existing_txn:
+      return existing_txn
+
+    if amount <= 0:
+      raise ValidationError("Transfer amount must be greater than zero.")
+
+    if sender_wallet_id == recipient_wallet_id:
+      raise ValidationError("Cannot transfer funds to the same wallet.")
+
+    try:
+      with transaction.atomic():
+        # Row-level locking
+        sender_wallet = Wallet.objects.select_for_update().get(
+            id=sender_wallet_id
+        )
+        recipient_wallet = Wallet.objects.select_for_update().get(
+            id=recipient_wallet_id
+        )
+
         if not sender_wallet.is_active or not recipient_wallet.is_active:
-            raise ValidationError("Both wallets must be active for a transfer.")
-        
+          raise ValidationError("One or both wallets are inactive.")
+
+        # Overdraft check (System pool is exempt)
+        if (
+            sender_wallet.account_type == Wallet.AccountType.USER
+            and sender_wallet.get_balance() < amount
+        ):
+          raise ValidationError("Insufficient funds.")
+
+        # Creates a savepoint for race-condition idempotency retries
+        try:
+          with transaction.atomic():
+            txn = Transaction.objects.create(
+                description=description, idempotency_key=idempotency_key
+            )
+        except IntegrityError:
+          # Savepoint rolls back
+          return Transaction.objects.get(idempotency_key=idempotency_key)
+
+      
+        # DEBIT
+        Entry.objects.create(
+            transaction=txn,
+            wallet=sender_wallet,
+            debit=amount,
+            credit=Decimal("0.00"),
+        )
+
+        # CREDIT
+        Entry.objects.create(
+            transaction=txn,
+            wallet=recipient_wallet,
+            debit=Decimal("0.00"),
+            credit=amount,
+        )
+
+        return txn
+
+    except Wallet.DoesNotExist:
+      raise ValidationError("One or both wallets do not exist.")
+    except Exception as e:
+      raise ValidationError(f"Transaction aborted: {str(e)}")
