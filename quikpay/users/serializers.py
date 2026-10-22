@@ -1,3 +1,5 @@
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import IntegrityError
 from rest_framework import serializers
 from .models import User    
 
@@ -10,17 +12,21 @@ class UserSerializer(serializers.ModelSerializer):
         fields = ['id', 'email', 'phone_number', 'first_name', 'last_name', 'id_number', 'password']
         
     def create(self, validated_data):
-        password=validated_data.pop('password')
+        password = validated_data.pop('password')
 
-        user = User.objects.create_user(
-            email=validated_data['email'],
-            phone_number=validated_data['phone_number'],
-            id_number=validated_data['id_number'],
-            first_name=validated_data['first_name'],
-            last_name=validated_data['last_name'],
-            password=password
-        )           
-        return user
-        
-        
-        
+        try:
+            user = User.objects.create_user(
+                email=validated_data['email'],
+                phone_number=validated_data['phone_number'],
+                id_number=validated_data['id_number'],
+                first_name=validated_data['first_name'],
+                last_name=validated_data['last_name'],
+                password=password
+            )            
+            return user
+        except (IntegrityError, DjangoValidationError) as e:
+            if hasattr(e, 'message_dict'):
+                raise serializers.ValidationError(e.message_dict)
+            elif hasattr(e, 'messages'):
+                raise serializers.ValidationError(e.messages)
+            raise serializers.ValidationError({"detail": str(e)})

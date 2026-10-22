@@ -44,7 +44,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "users",
-    "transactions",
+    "transactions.apps.TransactionsConfig",
     "phonenumber_field",
     'rest_framework',
 ]

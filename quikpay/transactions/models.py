@@ -75,6 +75,8 @@ class Transaction(models.Model):
 
     def __str__(self):
         return f"Transaction: {self.reference_number}"
+    
+        
 #need to generate a unique reference number for each transaction that is human readable.
 #user generated descripton of the transaction but must be a charfield to limit the length of the description to 255 characters.
 #created_at for auditing purposes 
