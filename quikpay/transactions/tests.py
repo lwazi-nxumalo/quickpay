@@ -3,7 +3,7 @@ from concurrent.futures import ThreadPoolExecutor
 from decimal import Decimal
 from unittest import mock
 from django.core.exceptions import ValidationError
-from django.db import transaction 
+from django.db import connection, transaction
 from django.test import TransactionTestCase 
 from transactions.models import Entry, Transaction, Wallet
 from transactions.services import WalletService
@@ -265,6 +265,10 @@ class WalletServiceTransferTests(TransactionTestCase):
                     )
             except Exception as error:
                 return error
+            finally:
+                # Each thread opens its own database connection; close it so the
+                # test database can be dropped when the run finishes.
+                connection.close()
 
         with ThreadPoolExecutor(max_workers=2) as executor:
             results = list(

@@ -179,4 +179,3 @@ Known gaps in what is built :
 - `is_active` and `status` on the user overlap , status is the real source of truth
 - tests for the sign-up race and two-way deadlock exist as manual checks , not yet in `tests.py`
 - no HSTS or forced https redirect configured yet (`check --deploy` warns about both)
-- the concurrency test threads don't close their DB connections , so the test run ends with an error dropping the test database even though all tests pass
