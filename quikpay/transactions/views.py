@@ -1,9 +1,12 @@
 from django.core.exceptions import ValidationError
+from django.db.models import Q
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from users.models import User
 from users.permissions import IsAccountActive
+from .models import Wallet
 from .serializers import DepositSerializer, TransferSerializer
 from .services import WalletService
 
@@ -19,9 +22,15 @@ class TransferAPIView(APIView):
       # Securely fetch sender wallet from authenticated user
       sender_wallet_id = request.user.wallet.id
 
+      recipient_identifier = serializer.validated_data['recipient']
+      recipient_user = User.objects.get(
+          Q(email=recipient_identifier) | Q(phone_number=recipient_identifier)
+      )
+      recipient_wallet_id = recipient_user.wallet.id
+
       txn = WalletService.transfer(
           sender_wallet_id=sender_wallet_id,
-          recipient_wallet_id=serializer.validated_data['recipient_wallet_id'],
+          recipient_wallet_id=recipient_wallet_id,
           amount=serializer.validated_data['amount'],
           description=serializer.validated_data['description'],
           idempotency_key=serializer.validated_data['idempotency_key'],
@@ -29,6 +38,11 @@ class TransferAPIView(APIView):
       return Response(
           {'status': 'success', 'transaction_id': txn.id},
           status=status.HTTP_201_CREATED,
+      )
+    except (User.DoesNotExist, Wallet.DoesNotExist):
+      return Response(
+          {'status': 'error', 'message': 'Recipient not found.'},
+          status=status.HTTP_404_NOT_FOUND,
       )
     except ValidationError as e:
       return Response(

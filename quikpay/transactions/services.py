@@ -93,3 +93,24 @@ class WalletService:
       raise ValidationError("One or both wallets do not exist.")
     except Exception as e:
       raise ValidationError(f"Transaction aborted: {str(e)}")
+
+  @staticmethod
+  def deposit(
+      recipient_wallet_id: int,
+      amount: Decimal,
+      description: str,
+      idempotency_key: str,
+  ) -> Transaction:
+    """A load is a transfer from the system pool to the user's wallet."""
+    try:
+      system_wallet = Wallet.objects.get(account_type=Wallet.AccountType.SYSTEM_POOL)
+    except Wallet.DoesNotExist:
+      raise ValidationError("System pool wallet is not set up.")
+
+    return WalletService.transfer(
+        sender_wallet_id=system_wallet.id,
+        recipient_wallet_id=recipient_wallet_id,
+        amount=amount,
+        description=f"SYSTEM DEPOSIT: {description}",
+        idempotency_key=idempotency_key,
+    )

@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>QuickPay</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">Q</span>
+        <span class="brand-name">QuickPay</span>
+      </div>
+      <div class="topbar-user" id="topbar-user" hidden>
+        <span class="topbar-name" id="topbar-name"></span>
+        <button class="btn btn-ghost" id="signout-btn" type="button">Sign out</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- Signed out -->
+    <section class="auth" id="view-auth" hidden>
+      <div class="auth-pitch">
+        <p class="eyebrow">Peer-to-peer payments</p>
+        <h1>Send money once.<br>Never twice.</h1>
+        <p class="pitch-copy">Every payment is recorded as a balanced double-entry ledger, protected against double taps, network retries and simultaneous transfers.</p>
+        <ul class="pitch-points">
+          <li><span class="dot dot-green"></span>All-or-nothing transfers</li>
+          <li><span class="dot dot-blue"></span>Identity verified before money moves</li>
+          <li><span class="dot dot-white"></span>Rand amounts stored exactly, to the cent</li>
+        </ul>
+      </div>
+
+      <div class="auth-panel">
+        <div class="tabs" role="tablist">
+          <button class="tab is-active" id="tab-signin" role="tab" aria-selected="true" aria-controls="form-signin" type="button">Sign in</button>
+          <button class="tab" id="tab-register" role="tab" aria-selected="false" aria-controls="form-register" type="button">Create account</button>
+        </div>
+
+        <div class="banner" id="auth-banner" hidden></div>
+
+        <form class="form" id="form-signin" novalidate>
+          <div class="field">
+            <label for="signin-email">Email</label>
+            <input id="signin-email" name="email" type="email" autocomplete="email" required>
+          </div>
+          <div class="field">
+            <label for="signin-password">Password</label>
+            <input id="signin-password" name="password" type="password" autocomplete="current-password" required>
+          </div>
+          <div class="form-error" role="alert" hidden></div>
+          <button class="btn btn-primary btn-block" type="submit">Sign in</button>
+        </form>
+
+        <form class="form" id="form-register" novalidate hidden>
+          <div class="field-row">
+            <div class="field">
+              <label for="reg-first">First name</label>
+              <input id="reg-first" name="first_name" autocomplete="given-name" required>
+            </div>
+            <div class="field">
+              <label for="reg-last">Last name</label>
+              <input id="reg-last" name="last_name" autocomplete="family-name" required>
+            </div>
+          </div>
+          <div class="field">
+            <label for="reg-email">Email</label>
+            <input id="reg-email" name="email" type="email" autocomplete="email" required>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label for="reg-phone">Mobile number</label>
+              <input id="reg-phone" name="phone_number" type="tel" autocomplete="tel" placeholder="082 123 4567" required>
+            </div>
+            <div class="field">
+              <label for="reg-id">SA ID number</label>
+              <input id="reg-id" name="id_number" inputmode="numeric" maxlength="13" placeholder="13 digits" required>
+            </div>
+          </div>
+          <div class="field">
+            <label for="reg-password">Password</label>
+            <input id="reg-password" name="password" type="password" autocomplete="new-password" required>
+          </div>
+          <div class="form-error" role="alert" hidden></div>
+          <button class="btn btn-primary btn-block" type="submit">Create account</button>
+          <p class="fine-print">New accounts are reviewed before they can send or receive money (FICA identity verification).</p>
+        </form>
+      </div>
+    </section>
+
+    <!-- Signed in -->
+    <section class="app" id="view-app" hidden>
+      <div class="app-head">
+        <div>
+          <p class="eyebrow eyebrow-dark">Dashboard</p>
+          <h2 id="greeting">Welcome</h2>
+        </div>
+        <span class="status-pill" id="status-pill" hidden></span>
+      </div>
+
+      <div class="banner banner-warn" id="kyc-banner" hidden>
+        Your identity is still being verified. You can view your profile, but sending and adding money unlock once an administrator approves your account.
+      </div>
+
+      <div class="grid-top">
+        <article class="card card-account">
+          <h3 class="card-title">Account</h3>
+          <dl class="details">
+            <div><dt>Name</dt><dd id="pf-name">–</dd></div>
+            <div><dt>Email</dt><dd id="pf-email">–</dd></div>
+            <div><dt>Mobile</dt><dd id="pf-phone" class="mono">–</dd></div>
+            <div><dt>ID number</dt><dd id="pf-id" class="mono">–</dd></div>
+          </dl>
+        </article>
+
+        <article class="card card-session">
+          <h3 class="card-title">This session</h3>
+          <p class="session-net mono" id="session-net">R 0.00</p>
+          <p class="muted small">Net movement from payments made in this browser session. The API does not expose wallet balances yet.</p>
+        </article>
+      </div>
+
+      <div class="grid-actions">
+        <article class="card">
+          <h3 class="card-title"><span class="icon icon-in" aria-hidden="true">+</span>Add money</h3>
+          <form class="form" id="form-deposit" novalidate>
+            <div class="field">
+              <label for="dep-amount">Amount (ZAR)</label>
+              <div class="money-input"><span>R</span><input id="dep-amount" name="amount" inputmode="decimal" placeholder="0.00" autocomplete="off" required></div>
+            </div>
+            <div class="field">
+              <label for="dep-desc">Reference</label>
+              <input id="dep-desc" name="description" maxlength="255" placeholder="e.g. Salary top-up" required>
+            </div>
+            <div class="form-error" role="alert" hidden></div>
+            <button class="btn btn-primary btn-block" type="submit">Add money</button>
+          </form>
+        </article>
+
+        <article class="card">
+          <h3 class="card-title"><span class="icon icon-out" aria-hidden="true">→</span>Send money</h3>
+          <form class="form" id="form-transfer" novalidate>
+            <div class="field">
+              <label for="tr-recipient">Recipient email or mobile</label>
+              <input id="tr-recipient" name="recipient" placeholder="name@example.com or 082 123 4567" autocomplete="off" required>
+            </div>
+            <div class="field">
+              <label for="tr-amount">Amount (ZAR)</label>
+              <div class="money-input"><span>R</span><input id="tr-amount" name="amount" inputmode="decimal" placeholder="0.00" autocomplete="off" required></div>
+            </div>
+            <div class="field">
+              <label for="tr-desc">Reference</label>
+              <input id="tr-desc" name="description" maxlength="255" placeholder="e.g. Rent, October" required>
+            </div>
+            <div class="form-error" role="alert" hidden></div>
+            <button class="btn btn-primary btn-block" type="submit">Send money</button>
+          </form>
+        </article>
+      </div>
+
+      <article class="card">
+        <div class="card-title-row">
+          <h3 class="card-title">Recent activity</h3>
+          <span class="muted small">This browser session</span>
+        </div>
+        <ul class="activity" id="activity"></ul>
+        <p class="empty" id="activity-empty">No payments yet. Money you add or send appears here with its transaction number.</p>
+      </article>
+
+      <p class="safety-note"><span class="dot dot-green"></span>Each payment carries a one-time key. If your connection drops, pressing the button again cannot charge you twice.</p>
+    </section>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
