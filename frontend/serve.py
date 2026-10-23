@@ -1,4 +1,4 @@
-"""Serve the QuickPay frontend and forward /api/* to the Django backend.
+"""Serve the QuickPay frontend and forward API requests to the Django backend.
 
 The backend has no CORS configuration, so the browser must reach the API from the
 same origin as the page. This server does that without any change to the backend.
@@ -16,6 +16,8 @@ BACKEND = os.environ.get("QUICKPAY_API", "http://127.0.0.1:8000").rstrip("/")
 PORT = int(os.environ.get("PORT", "8080"))
 ROOT = os.path.dirname(os.path.abspath(__file__))
 FORWARDED_HEADERS = ("Content-Type", "Authorization", "Accept")
+# Paths that belong to the Django API rather than to this folder.
+API_PREFIXES = ("/api/", "/transfer/", "/deposit/", "/balance/", "/history/")
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):
@@ -45,12 +47,12 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.wfile.write(data)
 
     def do_GET(self):
-        if self.path.startswith("/api/"):
+        if self.path.startswith(API_PREFIXES):
             return self._proxy()
         return super().do_GET()
 
     def do_POST(self):
-        if self.path.startswith("/api/"):
+        if self.path.startswith(API_PREFIXES):
             return self._proxy()
         self.send_error(405)
 

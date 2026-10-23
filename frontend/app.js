@@ -6,8 +6,10 @@ const API = {
   login: "/api/users/login/",
   refresh: "/api/users/token/refresh/",
   profile: "/api/users/profile/",
-  deposit: "/api/deposit/",
-  transfer: "/api/transfer/",
+  deposit: "/deposit/",
+  transfer: "/transfer/",
+  balance: "/balance/",
+  history: "/history/",
 };
 
 const KYC_MESSAGE =
@@ -217,7 +219,7 @@ function showApp(profile) {
   $("pf-phone").textContent = profile.phone_number || "–";
   $("pf-id").textContent = maskId(profile.id_number);
   renderStatus();
-  renderActivity();
+  loadWallet();
 }
 
 function setTab(which) {
@@ -236,7 +238,8 @@ function setBanner(message) {
   b.hidden = !message;
 }
 
-// Verification status is not in the profile response; it is learned from payment responses.
+// Verification status is not in the profile response; it is learned from the wallet endpoints,
+// which refuse accounts that are still pending KYC.
 function renderStatus() {
   const status = store.get("qp.kyc");
   const pill = $("status-pill");
@@ -256,51 +259,99 @@ function renderStatus() {
   }
 }
 
-function activityKey() {
-  return "qp.activity." + (store.get("qp.email") || "anon");
+// The history response has no counterparty, so remember who each payment from this browser went to.
+function recipientsKey() {
+  return "qp.recipients." + (store.get("qp.email") || "anon");
 }
 
-function renderActivity() {
-  const items = store.json(activityKey(), []);
-  const list = $("activity");
-  list.textContent = "";
-  let net = 0;
-  for (const item of items) {
-    const cents = toCents(item.amount);
-    net += item.type === "deposit" ? cents : -cents;
+function rememberRecipient(transactionId, to) {
+  const map = store.json(recipientsKey(), {});
+  map[transactionId] = to;
+  store.set(recipientsKey(), JSON.stringify(map));
+}
+
+// Balance arrives as a JSON number and history amounts as strings; both become integer cents.
+function centsFrom(value) {
+  if (typeof value === "number") return Math.round(value * 100);
+  return toCents(String(value));
+}
+
+const DEPOSIT_PREFIX = "SYSTEM DEPOSIT: ";
+
+function renderBalance(state, cents) {
+  const el = $("balance");
+  const note = $("balance-note");
+  el.className = "session-net mono";
+  if (state === "ok") {
+    el.textContent = formatRand(cents);
+    note.textContent = "Worked out from your ledger entries, to the cent.";
+  } else if (state === "pending") {
+    el.textContent = "–";
+    note.textContent = "Your balance appears once your identity is verified.";
+  } else {
+    el.textContent = "–";
+    note.textContent = "Your balance couldn't be loaded. Try Refresh.";
   }
-  for (const item of items.slice().reverse()) {
+}
+
+function renderHistory(state, entries) {
+  const list = $("activity");
+  const empty = $("activity-empty");
+  list.textContent = "";
+  if (state !== "ok") {
+    empty.textContent = state === "pending"
+      ? "Your transaction history appears once your identity is verified."
+      : "Your transaction history couldn't be loaded. Try Refresh.";
+    empty.hidden = false;
+    return;
+  }
+  const recipients = store.json(recipientsKey(), {});
+  for (const entry of entries) {
+    const incoming = centsFrom(entry.credit) > 0;
+    const cents = incoming ? centsFrom(entry.credit) : centsFrom(entry.debit);
+    const raw = String(entry.description || "");
+    const isDeposit = raw.startsWith(DEPOSIT_PREFIX);
+    const description = isDeposit ? raw.slice(DEPOSIT_PREFIX.length) : raw;
+    const to = recipients[entry.transaction_id];
+
     const li = document.createElement("li");
     const icon = document.createElement("span");
-    icon.className = "icon " + (item.type === "deposit" ? "icon-in" : "icon-out");
-    icon.textContent = item.type === "deposit" ? "+" : "→";
+    icon.className = "icon " + (incoming ? "icon-in" : "icon-out");
+    icon.textContent = incoming ? "+" : "→";
     const what = document.createElement("div");
     what.className = "what";
     const title = document.createElement("strong");
-    title.textContent = item.type === "deposit" ? "Money added" : `Sent to ${item.to}`;
+    title.textContent = isDeposit ? "Money added" : incoming ? "Money received" : to ? `Sent to ${to}` : "Money sent";
     const meta = document.createElement("span");
-    const when = new Date(item.at).toLocaleString("en-ZA", { dateStyle: "medium", timeStyle: "short" });
-    meta.textContent = `${item.description} · Transaction #${item.id} · ${when}`;
+    const when = new Date(entry.timestamp).toLocaleString("en-ZA", { dateStyle: "medium", timeStyle: "short" });
+    meta.textContent = `${description} · Transaction #${entry.transaction_id} · ${when}`;
     what.append(title, meta);
     const amt = document.createElement("span");
-    amt.className = "amt " + (item.type === "deposit" ? "in" : "out");
-    amt.textContent = (item.type === "deposit" ? "+" : "−") + formatRand(toCents(item.amount));
+    amt.className = "amt " + (incoming ? "in" : "out");
+    amt.textContent = (incoming ? "+" : "−") + formatRand(cents);
     li.append(icon, what, amt);
     list.appendChild(li);
   }
-  $("activity-empty").hidden = items.length > 0;
-  const netEl = $("session-net");
-  netEl.textContent = (net > 0 ? "+" : "") + formatRand(net);
-  netEl.className = "session-net mono" + (net > 0 ? " is-up" : net < 0 ? " is-down" : "");
+  empty.textContent = "No payments yet. Money you add or send appears here with its transaction number.";
+  empty.hidden = entries.length > 0;
 }
 
-function recordActivity(entry) {
-  const key = activityKey();
-  const items = store.json(key, []);
-  if (items.some((i) => i.id === entry.id)) return; // a retried payment returns the same transaction
-  items.push(entry);
-  store.set(key, JSON.stringify(items.slice(-50)));
-  renderActivity();
+// 403 (not approved) and 404 (no wallet yet) both mean the account is still pending KYC.
+function outcome(result) {
+  if (result.status === "fulfilled") return "ok";
+  const err = result.reason;
+  return err instanceof ApiError && (err.status === 403 || err.status === 404) ? "pending" : "error";
+}
+
+async function loadWallet() {
+  const [balance, history] = await Promise.allSettled([api(API.balance), api(API.history)]);
+  const balanceState = outcome(balance);
+  const historyState = outcome(history);
+  renderBalance(balanceState, balanceState === "ok" ? centsFrom(balance.value.balance) : 0);
+  renderHistory(historyState, historyState === "ok" ? history.value.history || [] : []);
+  if (balanceState === "ok" || historyState === "ok") store.set("qp.kyc", "verified");
+  else if (balanceState === "pending" || historyState === "pending") store.set("qp.kyc", "pending");
+  renderStatus();
 }
 
 function signOut(message) {
@@ -327,6 +378,7 @@ function fieldValues(form) {
 $("tab-signin").addEventListener("click", () => { setTab("signin"); setBanner(""); });
 $("tab-register").addEventListener("click", () => { setTab("register"); setBanner(""); });
 $("signout-btn").addEventListener("click", () => signOut("You have signed out."));
+$("refresh-btn").addEventListener("click", () => loadWallet());
 
 $("form-signin").addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -411,14 +463,8 @@ async function moneySubmit(e, kind) {
       const res = await api(kind === "transfer" ? API.transfer : API.deposit, { method: "POST", body });
       store.set("qp.kyc", "verified");
       renderStatus();
-      recordActivity({
-        id: res.transaction_id,
-        type: kind,
-        amount,
-        description,
-        to: recipient,
-        at: new Date().toISOString(),
-      });
+      if (kind === "transfer") rememberRecipient(res.transaction_id, recipient);
+      loadWallet();
       forgetKey(form);
       form.reset();
       toast(kind === "transfer"

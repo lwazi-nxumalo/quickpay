@@ -120,9 +120,9 @@
         </article>
 
         <article class="card card-session">
-          <h3 class="card-title">This session</h3>
-          <p class="session-net mono" id="session-net">R 0.00</p>
-          <p class="muted small">Net movement from payments made in this browser session. The API does not expose wallet balances yet.</p>
+          <h3 class="card-title">Available balance</h3>
+          <p class="session-net mono" id="balance">–</p>
+          <p class="muted small" id="balance-note">Loading your balance…</p>
         </article>
       </div>
 
@@ -166,8 +166,8 @@
 
       <article class="card">
         <div class="card-title-row">
-          <h3 class="card-title">Recent activity</h3>
-          <span class="muted small">This browser session</span>
+          <h3 class="card-title">Transaction history</h3>
+          <button class="btn btn-ghost" id="refresh-btn" type="button">Refresh</button>
         </div>
         <ul class="activity" id="activity"></ul>
         <p class="empty" id="activity-empty">No payments yet. Money you add or send appears here with its transaction number.</p>
