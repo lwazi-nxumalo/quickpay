@@ -78,10 +78,10 @@ The service sleeps when idle and boots on the next request , so it costs almost 
 5. **Settings → Build → Custom Build Command** : `python manage.py collectstatic --noinput`
    Leave the start command empty , Railpack detects Django and runs `python manage.py migrate && gunicorn quikpay.wsgi:application` itself
 6. **Settings → Networking → Generate Domain** (then put that domain in step 4's variables and redeploy)
-7. **Settings → Deploy → Serverless** : on
+7. **Settings → Deploy → Serverless** : on , and **Healthcheck Path** : `/health/`
 8. Once it's live , open a shell with the Railway CLI (`railway ssh`) and run `python manage.py createsuperuser` , then log into `/admin` and create the **System Pool** wallet
 
-Calling it from the portfolio : the first request after a sleep can fail , so retry once after a few seconds and show a "waking up the server" message instead of an error.
+Calling it from the portfolio : hit `/health/` when the page loads to start waking the service early. The first request after a sleep can fail , so retry once after a few seconds and show a "waking up the server" message instead of an error.
 
 ---
 
@@ -89,6 +89,7 @@ Calling it from the portfolio : the first request after a sleep can fail , so re
 
 | Method | Path | Who | What |
 |---|---|---|---|
+| GET | `/health/` | anyone | `200` if the app and database are up , `503` if the database is unreachable |
 | POST | `/api/users/register/` | logged out only | sign up , account starts as `pending_kyc` |
 | POST | `/api/users/login/` | anyone | email + password → JWT access & refresh |
 | POST | `/api/users/token/refresh/` | anyone | new access token |
