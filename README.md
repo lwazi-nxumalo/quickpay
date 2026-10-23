@@ -39,12 +39,9 @@ Then in `/admin` create the one **system pool** wallet (account type `System Poo
 
 ### 2. Frontend
 
-```bash
-cd frontend
-python serve.py
-```
+Nothing extra to run. Django serves the web app from `quikpay/frontend/` at the site root , so with the server up just open http://127.0.0.1:8000/. Page and API share one origin [and one Railway service].
 
-Open http://127.0.0.1:8080. `serve.py` serves the page and forwards API calls to Django [the backend has no CORS setup so the page and API need one origin]. More in [frontend/README.md](frontend/README.md).
+It's plain HTML , CSS and JavaScript , no build step. Tokens live in `sessionStorage` , amounts are sent as strings and summed as integer cents , and each payment attempt gets one idempotency key that is reused if you press the button again.
 
 ### 3. Tests
 
@@ -89,6 +86,7 @@ Calling it from the portfolio : hit `/health/` when the page loads to start waki
 
 | Method | Path | Who | What |
 |---|---|---|---|
+| GET | `/` | anyone | the web app |
 | GET | `/health/` | anyone | `200` if the app and database are up , `503` if the database is unreachable |
 | POST | `/api/users/register/` | logged out only | sign up , account starts as `pending_kyc` |
 | POST | `/api/users/login/` | anyone | email + password → JWT access & refresh |

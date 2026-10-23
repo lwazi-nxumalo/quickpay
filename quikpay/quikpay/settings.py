@@ -158,6 +158,11 @@ USE_TZ = True
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
+# The web app (index.html, app.js, styles.css) is served at the site root, so the
+# page and the API share one origin and one Railway service.
+WHITENOISE_ROOT = BASE_DIR / "frontend"
+WHITENOISE_INDEX_FILE = True
+
 # WhiteNoise serves the admin's CSS and JS from STATIC_ROOT after collectstatic
 STORAGES = {
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},

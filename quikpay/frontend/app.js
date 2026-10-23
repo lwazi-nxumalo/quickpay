@@ -1,4 +1,4 @@
-// QuickPay frontend. Talks to the Django API through serve.py, which proxies /api/* to the backend.
+// QuickPay frontend. Django serves this page at "/", so API calls are same-origin.
 "use strict";
 
 const API = {
