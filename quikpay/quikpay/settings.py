@@ -21,7 +21,9 @@ env = environ.Env(
     DEBUG=(bool, False)
 )
 
-environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
+# Local development reads .env; on Railway the same variables come from the service settings.
+if os.path.exists(os.path.join(BASE_DIR, '.env')):
+    environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
 
@@ -31,7 +33,18 @@ SECRET_KEY = env('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env('DEBUG')
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['127.0.0.1', 'localhost'])
+
+# Needed for the admin login over https, e.g. https://quickpay-production.up.railway.app
+CSRF_TRUSTED_ORIGINS = env.list('CSRF_TRUSTED_ORIGINS', default=[])
+
+# Sites allowed to call the API from a browser, e.g. the portfolio website
+CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=[])
+
+# Railway terminates https at its proxy and forwards plain http
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
 
 
 # Application definition
@@ -47,6 +60,7 @@ INSTALLED_APPS = [
     "transactions.apps.TransactionsConfig",
     "phonenumber_field",
     'rest_framework',
+    'corsheaders',
 ]
 
 PHONENUMBER_DEFAULT_REGION = "ZA"
@@ -65,7 +79,9 @@ SIMPLE_JWT = {
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -96,9 +112,11 @@ WSGI_APPLICATION = "quikpay.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/6.1/ref/settings/#databases
 
+# Connections close after each request (CONN_MAX_AGE defaults to 0), so an idle
+# service has no open database connection keeping it awake on Railway.
 DATABASES = {
     "default" : env.db(
-        'DATABASE_URL' 
+        'DATABASE_URL'
     )
 }
 
@@ -138,6 +156,13 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.1/howto/static-files/
 
 STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
+# WhiteNoise serves the admin's CSS and JS from STATIC_ROOT after collectstatic
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
+}
 
 
 # Email
